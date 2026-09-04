@@ -8,7 +8,7 @@ const ok=(data:unknown)=>({content:[{type:"text" as const,text:JSON.stringify(da
 const fail=(e:unknown)=>({isError:true,content:[{type:"text" as const,text:e instanceof Error?e.message:String(e)}]});
 
 export function buildCompactMcpServer(){
-  const s=new McpServer({name:"ProjectFactory-Compact",version:"1.8.0"});
+  const s=new McpServer({name:"ProjectFactory-Compact",version:"1.9.0"});
 
   s.tool("projects","List managed projects with only routing fields",{},async()=>{
     try{const rows=(await listProjects()).map((p:any)=>({name:p.name,status:p.status,github:p.github_repo||null,url:p.vercel_url||null}));return ok(rows)}catch(e){return fail(e)}
@@ -35,22 +35,30 @@ export function buildCompactMcpServer(){
   });
 
   s.tool("cloudflare_task","Queue Cloudflare infrastructure/deploy work in GitHub Actions. Wrangler logs stay out of model context.",{
-    action:z.enum(["verify","inventory","d1_create","r2_create","deploy_repo"]),
+    action:z.enum(["verify","inventory","d1_create","r2_create","d1_migrate","deploy_repo"]),
     resource_name:z.string().regex(/^[a-z0-9-]+$/).optional(),
     project:z.string().optional(),
-    working_directory:z.string().default(".")
-  },async({action,resource_name,project,working_directory})=>{
+    working_directory:z.string().default("."),
+    health_url:z.string().url().optional()
+  },async({action,resource_name,project,working_directory,health_url})=>{
     try{
-      if((action==="d1_create"||action==="r2_create")&&!resource_name)throw new Error("resource_name is required for create actions");
+      if((action==="d1_create"||action==="r2_create"||action==="d1_migrate")&&!resource_name)throw new Error("resource_name is required for this action");
       const owner=process.env.GITHUB_OWNER;if(!owner)throw new Error("GITHUB_OWNER is missing");
       let source_repo="",source_ref="main";
-      if(action==="deploy_repo"){
-        if(!project)throw new Error("project is required for deploy_repo");
+      if(action==="deploy_repo"||action==="d1_migrate"){
+        if(!project)throw new Error("project is required for repo-based actions");
         const p=await findProject(project);if(!p?.github_repo)throw new Error("Project has no GitHub repo");
         source_repo=p.github_repo;source_ref=p.github_branch||"main";
       }
-      const r=await dispatchWorkflow(`${owner}/ProjectFactory`,"cloudflare-runner.yml","main",{action,resource_name:resource_name||"",source_repo,source_ref,working_directory});
-      return ok({...r,action,project:project||null,resource_name:resource_name||null});
+      const r=await dispatchWorkflow(`${owner}/ProjectFactory`,"cloudflare-runner.yml","main",{
+        action,
+        resource_name:resource_name||"",
+        source_repo,
+        source_ref,
+        working_directory,
+        health_url:health_url||""
+      });
+      return ok({...r,action,project:project||null,resource_name:resource_name||null,health_url:health_url||null});
     }catch(e){return fail(e)}
   });
 
