@@ -6,7 +6,7 @@ on:
       - test/cloudflare-smoke-deploy
 
 jobs:
-  provision:
+  smoke:
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -15,13 +15,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+
       - name: Ensure D1 exists
-        run: |
-          npx --yes wrangler@latest d1 list | grep -q 'projectfactory-smoke-db' || npx --yes wrangler@latest d1 create projectfactory-smoke-db
+        run: npx --yes wrangler@latest d1 list | grep -q 'projectfactory-smoke-db'
+
       - name: Ensure R2 exists
+        run: npx --yes wrangler@latest r2 bucket list | grep -q 'projectfactory-smoke-files'
+
+      - name: Checkout private target repo
+        uses: actions/checkout@v4
+        with:
+          repository: safetysc6-ux/affiliate-test-v2
+          ref: cloudflare-smoke
+          token: ${{ secrets.PROJECTFACTORY_GITHUB_TOKEN }}
+          path: target
+
+      - name: Install
+        working-directory: target/cf-smoke
+        run: npm install
+
+      - name: Deploy Worker with D1 and R2 bindings
+        working-directory: target/cf-smoke
+        run: npx wrangler deploy
+
+      - name: Verify live Worker, D1 and R2
         run: |
-          npx --yes wrangler@latest r2 bucket list | grep -q 'projectfactory-smoke-files' || npx --yes wrangler@latest r2 bucket create projectfactory-smoke-files
-      - name: Show inventory
-        run: |
-          npx --yes wrangler@latest d1 list
-          npx --yes wrangler@latest r2 bucket list
+          sleep 3
+          BODY="$(curl --fail --silent --show-error https://projectfactory-smoke.safetysc6.workers.dev/)"
+          echo "$BODY"
+          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok||!x.d1?.ok||!x.r2?.ok) process.exit(1)' "$BODY"
