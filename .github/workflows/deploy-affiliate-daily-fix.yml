@@ -23,7 +23,7 @@ jobs:
           node-version: 24
       - name: Install
         working-directory: target
-        run: npm ci
+        run: npm install
       - name: Deploy
         working-directory: target
         run: npm run deploy
