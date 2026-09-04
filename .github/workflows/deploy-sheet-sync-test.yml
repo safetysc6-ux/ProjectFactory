@@ -1,0 +1,46 @@
+name: deploy-sheet-sync-test
+
+on:
+  push:
+    branches:
+      - sync/affiliate-d1
+    paths:
+      - .github/workflows/deploy-sheet-sync-test.yml
+      - .sync/sheet-sync-test-trigger.txt
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: safetysc6-ux/affiliate-test-v2
+          ref: feat/cloudflare-sheet-sync
+          token: ${{ secrets.PROJECTFACTORY_GITHUB_TOKEN }}
+          path: target
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check Google secret availability without printing values
+        run: |
+          test -n "$GOOGLE_CLIENT_ID" && echo 'GOOGLE_CLIENT_ID=set' || echo 'GOOGLE_CLIENT_ID=missing'
+          test -n "$GOOGLE_CLIENT_SECRET" && echo 'GOOGLE_CLIENT_SECRET=set' || echo 'GOOGLE_CLIENT_SECRET=missing'
+          test -n "$GOOGLE_REFRESH_TOKEN" && echo 'GOOGLE_REFRESH_TOKEN=set' || echo 'GOOGLE_REFRESH_TOKEN=missing'
+      - name: Install
+        working-directory: target
+        run: npm install
+      - name: Build and deploy
+        working-directory: target
+        run: npm run deploy
+      - name: Verify endpoints
+        run: |
+          sleep 5
+          curl --fail --silent --show-error 'https://affiliate-test-v2-cf.safetysc6.workers.dev/api/reports' >/tmp/reports.json
+          curl --fail --silent --show-error 'https://affiliate-test-v2-cf.safetysc6.workers.dev/api/sync-sheet' >/tmp/sync.json
+          node -e "const r=require('/tmp/reports.json'); const s=require('/tmp/sync.json'); if(r.source!=='cloudflare_d1'||s.service!=='sheet-to-d1-sync') process.exit(1); console.log('PASS reports='+r.source+' sync_ready='+s.config_ready)"
