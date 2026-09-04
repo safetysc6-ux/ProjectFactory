@@ -1,0 +1,32 @@
+name: deploy-mobile-ui
+on:
+  push:
+    branches: [sync/affiliate-d1]
+    paths:
+      - .github/workflows/deploy-mobile-ui.yml
+      - .sync/deploy-mobile-ui-trigger.txt
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: safetysc6-ux/affiliate-test-v2
+          ref: main
+          token: ${{ secrets.PROJECTFACTORY_GITHUB_TOKEN }}
+          path: target
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - working-directory: target
+        run: npm install
+      - working-directory: target
+        run: npm run deploy
+      - name: Verify live app
+        run: |
+          sleep 5
+          curl --fail --silent --show-error 'https://affiliate-test-v2-cf.safetysc6.workers.dev/' >/dev/null
+          curl --fail --silent --show-error 'https://affiliate-test-v2-cf.safetysc6.workers.dev/api/sync-debug'
