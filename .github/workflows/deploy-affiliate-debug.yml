@@ -30,7 +30,14 @@ jobs:
       - name: Deploy
         working-directory: target
         run: npm run deploy
-      - name: Verify debug endpoint
+      - name: Verify and sync
         run: |
           sleep 5
+          echo '--- DEBUG ---'
           curl --fail --silent --show-error 'https://affiliate-test-v2-cf.safetysc6.workers.dev/api/sync-debug'
+          echo
+          echo '--- SYNC ---'
+          curl --fail --silent --show-error -X POST 'https://affiliate-test-v2-cf.safetysc6.workers.dev/api/sync-sheet'
+          echo
+          echo '--- REPORTS ---'
+          curl --fail --silent --show-error 'https://affiliate-test-v2-cf.safetysc6.workers.dev/api/reports' | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const j=JSON.parse(s); console.log(JSON.stringify({source:j.source,last_synced_at:j.last_synced_at,days:j.daily?.length,latest:j.daily?.at(-1)},null,2))})"
