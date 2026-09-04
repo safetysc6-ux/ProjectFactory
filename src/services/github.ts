@@ -22,6 +22,14 @@ export async function replaceFileText(repo:string,path:string,replacements:TextR
   return {...result,applied};
 }
 
+export async function dispatchWorkflow(repo:string,workflow:string,ref="main",inputs:Record<string,string>={}){
+  const r=await fetch(`${API}/repos/${repo}/actions/workflows/${encodeURIComponent(workflow)}/dispatches`,{
+    method:"POST",headers:headers(),body:JSON.stringify({ref,inputs})
+  });
+  if(!r.ok)throw new Error(`GitHub workflow dispatch failed ${r.status}: ${await r.text()}`);
+  return {queued:true,repo,workflow,ref};
+}
+
 export async function deleteRepo(repo:string){const r=await fetch(`${API}/repos/${repo}`,{method:"DELETE",headers:headers()});if(!r.ok&&r.status!==404)throw new Error(`GitHub delete repo failed ${r.status}: ${await r.text()}`);return {deleted:true,repo};}
 
 export async function getRepoInfo(repo:string){const r=await fetch(`${API}/repos/${repo}`,{headers:headers()});if(!r.ok)throw new Error(`GitHub get repo failed ${r.status}: ${await r.text()}`);const j:any=await r.json();return {id:j.id as number,full_name:j.full_name as string,default_branch:j.default_branch as string,private:Boolean(j.private)};}
