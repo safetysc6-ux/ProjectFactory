@@ -12,9 +12,24 @@ on:
           - inventory
           - d1_create
           - r2_create
+          - deploy_repo
       resource_name:
         description: Resource name for create actions
         required: false
+        type: string
+      source_repo:
+        description: owner/repo to deploy
+        required: false
+        type: string
+      source_ref:
+        description: branch or ref
+        required: false
+        default: main
+        type: string
+      working_directory:
+        description: directory containing package.json and wrangler config
+        required: false
+        default: .
         type: string
 
 jobs:
@@ -59,3 +74,23 @@ jobs:
         run: |
           test -n "${{ inputs.resource_name }}" || (echo "resource_name is required" && exit 1)
           npx --yes wrangler@latest r2 bucket create "${{ inputs.resource_name }}"
+
+      - name: Checkout target repo
+        if: ${{ inputs.action == 'deploy_repo' }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.source_repo }}
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.PROJECTFACTORY_GITHUB_TOKEN || github.token }}
+          path: target
+
+      - name: Install target dependencies
+        if: ${{ inputs.action == 'deploy_repo' }}
+        working-directory: target/${{ inputs.working_directory }}
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Deploy target to Cloudflare
+        if: ${{ inputs.action == 'deploy_repo' }}
+        working-directory: target/${{ inputs.working_directory }}
+        run: npx wrangler deploy
