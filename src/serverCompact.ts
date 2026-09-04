@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { findProject, listProjects, saveProject } from "./services/registry.js";
-import { getFile, putFile, replaceFileText, getRepoInfo } from "./services/github.js";
+import { getFile, putFile, replaceFileText, getRepoInfo, dispatchWorkflow } from "./services/github.js";
 import { createVercelProject, createDeployment } from "./services/vercel.js";
 
 const ok=(data:unknown)=>({content:[{type:"text" as const,text:JSON.stringify(data)}]});
@@ -13,7 +13,7 @@ const fail=(e:unknown)=>({isError:true,content:[{type:"text" as const,text:e ins
  * tokens on the actual code change instead of infrastructure plumbing.
  */
 export function buildCompactMcpServer(){
-  const s=new McpServer({name:"ProjectFactory-Compact",version:"1.6.0"});
+  const s=new McpServer({name:"ProjectFactory-Compact",version:"1.7.0"});
 
   s.tool("projects","List managed projects with only routing fields",{},async()=>{
     try{
@@ -79,6 +79,18 @@ export function buildCompactMcpServer(){
       if(d.url)p.vercel_url=`https://${d.url}`;
       p.status="READY";await saveProject(p);
       return ok({ok:true,url:p.vercel_url||null});
+    }catch(e){return fail(e)}
+  });
+
+  s.tool("cloudflare_task","Queue a safe Cloudflare infrastructure task in GitHub Actions. No shell logs are returned to the model.",{
+    action:z.enum(["verify","inventory","d1_create","r2_create"]),
+    resource_name:z.string().regex(/^[a-z0-9-]+$/).optional()
+  },async({action,resource_name})=>{
+    try{
+      if((action==="d1_create"||action==="r2_create")&&!resource_name)throw new Error("resource_name is required for create actions");
+      const owner=process.env.GITHUB_OWNER;if(!owner)throw new Error("GITHUB_OWNER is missing");
+      const r=await dispatchWorkflow(`${owner}/ProjectFactory`,"cloudflare-runner.yml","main",{action,resource_name:resource_name||""});
+      return ok({...r,action,resource_name:resource_name||null});
     }catch(e){return fail(e)}
   });
 
