@@ -6,24 +6,22 @@ on:
       - test/cloudflare-smoke-deploy
 
 jobs:
-  deploy:
+  provision:
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: safetysc6-ux/affiliate-test-v2
-          ref: cloudflare-smoke
-          token: ${{ secrets.PROJECTFACTORY_GITHUB_TOKEN }}
-          path: target
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Install
-        working-directory: target/cf-smoke
-        run: npm install
-      - name: Deploy
-        working-directory: target/cf-smoke
-        run: npx wrangler deploy
+      - name: Ensure D1 exists
+        run: |
+          npx --yes wrangler@latest d1 list | grep -q 'projectfactory-smoke-db' || npx --yes wrangler@latest d1 create projectfactory-smoke-db
+      - name: Ensure R2 exists
+        run: |
+          npx --yes wrangler@latest r2 bucket list | grep -q 'projectfactory-smoke-files' || npx --yes wrangler@latest r2 bucket create projectfactory-smoke-files
+      - name: Show inventory
+        run: |
+          npx --yes wrangler@latest d1 list
+          npx --yes wrangler@latest r2 bucket list
