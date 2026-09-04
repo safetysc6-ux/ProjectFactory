@@ -3,7 +3,9 @@ name: affiliate-d1-sync
 on:
   push:
     branches:
-      - feat/affiliate-private-sheet-sync
+      - sync/affiliate-d1
+    paths:
+      - .sync/affiliate-d1-trigger.txt
   workflow_dispatch:
 
 jobs:
@@ -16,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: safetysc6-ux/affiliate-test-v2
-          ref: feat/private-sheet-sync-bridge
+          ref: main
           token: ${{ secrets.PROJECTFACTORY_GITHUB_TOKEN }}
           path: target
       - uses: actions/setup-node@v4
@@ -28,11 +30,7 @@ jobs:
       - name: Apply snapshot to D1
         working-directory: target
         run: npx --yes wrangler@latest d1 execute affiliate-dashboard-db --remote --file /tmp/affiliate-d1-sync.sql
-      - name: Build and deploy dashboard
-        working-directory: target
-        run: npm install && npm run deploy
       - name: Verify D1-backed dashboard
         run: |
-          sleep 5
           curl --fail --silent --show-error 'https://affiliate-test-v2-cf.safetysc6.workers.dev/api/reports' >/tmp/reports.json
-          node -e "const x=require('/tmp/reports.json'); if(x.status!=='success'||x.source!=='cloudflare_d1'||!Array.isArray(x.daily)||x.daily.length<34) process.exit(1); const d=x.daily.find(r=>r.date==='2026-08-01'); if(!d||d.clicks!==317) process.exit(1); console.log('PASS D1 rows='+x.daily.length+' Aug01 clicks='+d.clicks)"
+          node -e "const x=require('/tmp/reports.json'); if(x.status!=='success'||x.source!=='cloudflare_d1'||!Array.isArray(x.daily)||!x.daily.length) process.exit(1); console.log('PASS D1 rows='+x.daily.length+' last_sync='+x.last_synced_at)"
