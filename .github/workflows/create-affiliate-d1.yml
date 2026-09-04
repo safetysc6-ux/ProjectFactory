@@ -1,0 +1,24 @@
+name: create-affiliate-d1
+
+on:
+  push:
+    branches:
+      - test/create-affiliate-d1
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Ensure affiliate D1 exists
+        run: |
+          if npx --yes wrangler@latest d1 list | grep -q 'affiliate-dashboard-db'; then
+            npx --yes wrangler@latest d1 list
+          else
+            npx --yes wrangler@latest d1 create affiliate-dashboard-db
+          fi
