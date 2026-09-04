@@ -1,0 +1,38 @@
+name: affiliate-d1-sync
+
+on:
+  push:
+    branches:
+      - feat/affiliate-private-sheet-sync
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: safetysc6-ux/affiliate-test-v2
+          ref: feat/private-sheet-sync-bridge
+          token: ${{ secrets.PROJECTFACTORY_GITHUB_TOKEN }}
+          path: target
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Build D1 upsert SQL
+        working-directory: target
+        run: node scripts/build-d1-sync.mjs data/daily-report.json /tmp/affiliate-d1-sync.sql
+      - name: Apply snapshot to D1
+        working-directory: target
+        run: npx --yes wrangler@latest d1 execute affiliate-dashboard-db --remote --file /tmp/affiliate-d1-sync.sql
+      - name: Build and deploy dashboard
+        working-directory: target
+        run: npm install && npm run deploy
+      - name: Verify D1-backed dashboard
+        run: |
+          sleep 5
+          curl --fail --silent --show-error 'https://affiliate-test-v2-cf.safetysc6.workers.dev/api/reports' >/tmp/reports.json
+          node -e "const x=require('/tmp/reports.json'); if(x.status!=='success'||x.source!=='cloudflare_d1'||!Array.isArray(x.daily)||x.daily.length<34) process.exit(1); const d=x.daily.find(r=>r.date==='2026-08-01'); if(!d||d.clicks!==317) process.exit(1); console.log('PASS D1 rows='+x.daily.length+' Aug01 clicks='+d.clicks)"
