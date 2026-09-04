@@ -1,74 +1,73 @@
-# ProjectFactory MCP v1.1 — Render + Gemini Spark
+# ProjectFactory MCP v1.2 — Render + Gemini Spark OAuth
 
-Remote MCP server สำหรับ Gemini Spark ใช้สร้างและแก้ไขหลายโปรเจกต์ด้วยชื่อโปรเจกต์เดียว
+Remote multi-project MCP server สำหรับ Gemini Spark โดยเฉพาะ
 
-## ความสามารถหลัก
+## Gemini Spark connection
 
-- `bootstrap_project` สร้างโปรเจกต์จากศูนย์
-  - Project Registry
-  - GitHub repo
-  - scaffold Next.js
-  - Supabase project + affiliate schema
-  - Vercel project + environment variables
-  - optional Google Drive folder binding
-  - production deploy
-- `modify_project` แก้หลายไฟล์ใน repo แล้ว deploy
-- `deploy_project` deploy โปรเจกต์เดิม
-- `project_status`, `project_list`, `project_get`
-- `project_alias_add`
-- `project_connect_drive`
-- `drive_list_files`, `drive_latest_files`, `drive_read_text`
-- `github_read_file`, `github_write_file`
-- `supabase_run_sql`
-- `vercel_status`
-
-## Flow
+หลัง Deploy บน Render ให้ตั้ง `PUBLIC_BASE_URL` เป็น URL ของ Render เช่น:
 
 ```text
-Gemini Spark
-   ↓ @ProjectFactory
-Render /mcp
-   ↓
-Project Registry
-   ├─ GitHub
-   ├─ Supabase
-   ├─ Vercel
-   └─ Google Drive
+https://project-factory-mcp.onrender.com
 ```
 
-ตัวอย่างคำสั่ง:
+แล้วใน Gemini Spark > Custom apps:
 
 ```text
-@ProjectFactory สร้าง project affiliate-main จากศูนย์ เป็น affiliate dashboard
-เชื่อม Drive folder <URL> สร้าง Supabase + Vercel และ deploy production
+MCP server URL:
+https://project-factory-mcp.onrender.com/mcp
+
+OAuth Client ID:
+ค่าจาก MCP_OAUTH_CLIENT_ID
+
+OAuth Client Secret:
+ค่าจาก MCP_OAUTH_CLIENT_SECRET
 ```
 
-หลังจากสร้างแล้ว:
+MCP มี OAuth endpoints:
 
 ```text
-@ProjectFactory affiliate-main เพิ่มหน้า Top Product และ deploy
-@ProjectFactory affiliate-main ดูไฟล์ AffiliateCommissionReport ล่าสุด
-@ProjectFactory affiliate-main ดูสถานะ
+/.well-known/oauth-authorization-server
+/.well-known/oauth-protected-resource
+/authorize
+/token
+/mcp
+/health
 ```
 
-## Deploy บน Render
+## Render settings
 
-1. Push repo นี้ขึ้น GitHub
-2. Render → New → Blueprint หรือ Web Service
-3. ใช้ `render.yaml`
-4. ตั้ง Environment Variables จาก `.env.example`
-5. Run `registry.sql` ใน Supabase ที่ใช้เป็น Registry
-6. Deploy
-7. ทดสอบ `https://<service>.onrender.com/health`
-8. MCP URL คือ `https://<service>.onrender.com/mcp`
+```text
+Runtime: Node
+Build Command: npm install && npm run check
+Start Command: npm start
+Health Check Path: /health
+```
 
-## Gemini Spark
+## ENV กลุ่มแรกที่ต้องตั้งเพื่อเชื่อม Spark
 
-เพิ่ม Custom App แล้วใส่ MCP URL ของ Render พร้อม Bearer token ถ้าตั้ง `MCP_API_TOKEN`
+```env
+PUBLIC_BASE_URL=https://YOUR-SERVICE.onrender.com
+MCP_OAUTH_CLIENT_ID=projectfactory-gemini-spark
+MCP_OAUTH_CLIENT_SECRET=สุ่มรหัสยาวอย่างน้อย32ตัว
+MCP_OAUTH_SIGNING_SECRET=สุ่มอีกชุดหนึ่งอย่างน้อย32ตัว
+```
 
-## Important
+`MCP_OAUTH_CLIENT_ID` ไม่ใช่ Google Client ID — เป็น Client ID ที่เรากำหนดให้ Spark เชื่อม MCP นี้
 
-- เก็บ secret ใน Render เท่านั้น ห้าม commit `.env`
-- Supabase service-role และ management token เป็น server-side secret
-- ถ้าใช้ Render free instance อาจมี cold start
-- `bootstrap_project` ทำ external writes หลายระบบ ควรใช้กับชื่อโปรเจกต์ใหม่เท่านั้น
+## Security
+
+- Client Secret และ Signing Secret เก็บเฉพาะ Render Environment
+- ห้าม commit `.env`
+- v1.2 รองรับ PKCE (`S256`/`plain`)
+- ถ้ายังไม่รู้ Gemini redirect URI ให้เว้น `MCP_OAUTH_ALLOWED_REDIRECT_URIS`; ระบบจะยอมรับเฉพาะ HTTPS redirect
+- หลังเห็น redirect URI จริงจาก log/error แนะนำใส่ allow-list ให้ตรงแบบ exact match
+
+## Existing ProjectFactory features
+
+- multi-project registry
+- bootstrap project
+- GitHub code write
+- Vercel project/deploy integration
+- Supabase management/schema
+- Google Drive / Sheet / CSV integration
+- affiliate project template

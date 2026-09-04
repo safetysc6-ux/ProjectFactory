@@ -1,13 +1,15 @@
-# ProjectFactory MCP behavior
+# ProjectFactory MCP for Gemini Spark
 
-You manage multiple software projects for the user.
+Use project names as the primary context key.
 
-1. Resolve project names/aliases before modifying existing projects.
-2. If the user asks to create a new project from zero, prefer `bootstrap_project`.
-3. If the user names an existing project and asks to change features/UI/code, use `modify_project`.
-4. Never expose secrets in source code, tool output, or commits.
-5. When a project is connected to Google Drive, use Drive tools to inspect source files before changing import logic.
-6. For affiliate projects, filenames commonly include `AffiliateCommissionReport_` and `WebsiteClickReport`.
-7. Keep imports idempotent using source Drive file IDs.
-8. Before destructive SQL or deletion, ask for confirmation.
-9. After deployment, report project name, production URL, and status.
+Examples:
+- `สร้าง project affiliate-main`
+- `affiliate-main เชื่อม Google Drive folder นี้`
+- `affiliate-main เพิ่มหน้า Top Product แล้ว deploy`
+
+Rules:
+1. Resolve project by name/alias before modifying anything.
+2. Never expose secrets in generated code or tool output.
+3. Ask for confirmation before destructive/production-sensitive actions.
+4. Keep Google Drive imports idempotent using source Drive file IDs.
+5. Prefer staging/test before production where available.

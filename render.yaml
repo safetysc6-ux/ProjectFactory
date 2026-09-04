@@ -2,13 +2,24 @@ services:
   - type: web
     name: project-factory-mcp
     runtime: node
-    plan: starter
-    buildCommand: npm install
+    plan: free
+    buildCommand: npm install && npm run check
     startCommand: npm start
     healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: 20
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: MCP_OAUTH_CLIENT_ID
+        sync: false
+      - key: MCP_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: MCP_OAUTH_SIGNING_SECRET
+        sync: false
+      - key: MCP_OAUTH_ALLOWED_REDIRECT_URIS
+        sync: false
       - key: MCP_API_TOKEN
         sync: false
       - key: REGISTRY_SUPABASE_URL
