@@ -1,0 +1,24 @@
+name: ui-overhaul-check
+on:
+  push:
+    branches: [sync/affiliate-d1]
+    paths:
+      - .github/workflows/ui-overhaul-check.yml
+      - .sync/ui-overhaul-check-trigger.txt
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: safetysc6-ux/affiliate-test-v2
+          ref: feat/mobile-minimal-ui
+          token: ${{ secrets.PROJECTFACTORY_GITHUB_TOKEN }}
+          path: target
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - working-directory: target
+        run: npm install
+      - working-directory: target
+        run: npm run build
