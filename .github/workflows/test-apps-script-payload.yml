@@ -1,0 +1,22 @@
+name: test-apps-script-payload
+
+on:
+  push:
+    branches:
+      - test/apps-script-payload
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Apps Script payload
+        run: |
+          set -euo pipefail
+          URL='https://script.google.com/macros/s/AKfycbzUNRxH5Mqw0VlJA-5l3AXpLAGQ9ZJNIFjRMbOnHf6EP7goAL5KDfGc6Ixk1FIYWEzC/exec?api=dashboard'
+          curl -L --fail --silent --show-error "$URL" -o /tmp/payload
+          echo '--- content-type/size ---'
+          file /tmp/payload || true
+          wc -c /tmp/payload
+          echo '--- first 3000 bytes ---'
+          head -c 3000 /tmp/payload
+          echo
