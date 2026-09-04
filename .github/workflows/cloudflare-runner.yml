@@ -105,7 +105,12 @@ jobs:
       - name: Deploy target to Cloudflare
         if: ${{ inputs.action == 'deploy_repo' }}
         working-directory: target/${{ inputs.working_directory }}
-        run: npx wrangler deploy
+        run: |
+          if node -e "const p=require('./package.json'); process.exit(p.scripts&&p.scripts.deploy?0:1)"; then
+            npm run deploy
+          else
+            npx wrangler deploy
+          fi
 
       - name: Verify deployed endpoint
         if: ${{ inputs.action == 'deploy_repo' && inputs.health_url != '' }}
