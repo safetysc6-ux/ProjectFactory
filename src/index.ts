@@ -21,7 +21,7 @@ app.use(express.urlencoded({ extended: false }));
 app.get("/health", (req, res) => res.json({
   ok: true,
   service: "ProjectFactory",
-  version: "1.2.0",
+  version: "1.5.0",
   transport: "streamable-http",
   oauth: true,
   mcp: `${getBaseUrl(req)}/mcp`,
@@ -53,5 +53,5 @@ app.all("/mcp", mcpAuth, async (req, res) => {
 
 const port = Number(process.env.PORT || 10000);
 app.listen(port, "0.0.0.0", () => {
-  console.log(`ProjectFactory MCP v1.2 listening on 0.0.0.0:${port}`);
+  console.log(`ProjectFactory MCP v1.5 listening on 0.0.0.0:${port}`);
 });

@@ -1,4 +1,4 @@
-export type ProjectStatus = "NEW" | "PROVISIONING" | "CODING" | "DEPLOYING" | "TESTING" | "READY" | "FAILED";
+export type ProjectStatus = "NEW" | "PROVISIONING" | "CODING" | "DEPLOYING" | "TESTING" | "READY" | "ARCHIVED" | "FAILED";
 export interface ProjectRecord {
   id: string;
   name: string;

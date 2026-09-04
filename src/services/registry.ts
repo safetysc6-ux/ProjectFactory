@@ -158,6 +158,16 @@ export async function saveProject(project: ProjectRecord): Promise<ProjectRecord
   return rowToProject(rows[0]);
 }
 
+export async function deleteProjectRecord(project: ProjectRecord): Promise<void> {
+  if (!useNeon()) {
+    memory.delete(project.id);
+    return;
+  }
+  await initRegistry();
+  const db = getPool()!;
+  await db.query(`delete from project_registry where id = $1`, [project.id]);
+}
+
 export function newProject(name: string, description?: string): ProjectRecord {
   const now = new Date().toISOString();
   return {

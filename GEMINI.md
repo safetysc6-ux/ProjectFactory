@@ -10,3 +10,11 @@ Rules:
 5. Google Drive imports must be idempotent by Drive file ID.
 6. Prefer staging/test before destructive production changes.
 7. A project may be created from zero and later addressed only by its project name.
+
+
+## Project lifecycle safety
+- Never call `delete_project` unless the user explicitly asks to delete a named project.
+- Before full deletion, summarize the exact GitHub/Vercel/Supabase targets and ask for explicit confirmation.
+- Pass `confirm_project_name` exactly equal to the resolved canonical project name.
+- Prefer `archive_project` when the user only wants to stop or hide a project.
+- Never delete Google Drive source files as part of project deletion.

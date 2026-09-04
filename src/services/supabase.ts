@@ -36,3 +36,9 @@ export async function waitForProject(ref: string, timeoutMs = 180000) {
   }
   throw new Error("Timed out waiting for Supabase project to become ready");
 }
+
+export async function deleteSupabaseProject(ref: string) {
+  const r = await fetch(`${API}/v1/projects/${encodeURIComponent(ref)}`, { method: "DELETE", headers: headers() });
+  if (!r.ok && r.status !== 404) throw new Error(`Supabase delete project failed ${r.status}: ${await r.text()}`);
+  return { deleted: true, ref };
+}

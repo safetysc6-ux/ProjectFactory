@@ -1,9 +1,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { listProjects, findProject, saveProject, newProject } from "./services/registry.js";
-import { createRepo, getFile, putFile, putFiles } from "./services/github.js";
-import { createVercelProject, getVercelProject, setVercelEnv, createDeployment } from "./services/vercel.js";
-import { createSupabaseProject, getProjectApiKeys, runSql, waitForProject } from "./services/supabase.js";
+import { listProjects, findProject, saveProject, newProject, deleteProjectRecord } from "./services/registry.js";
+import { createRepo, getFile, putFile, putFiles, deleteRepo, getRepoInfo } from "./services/github.js";
+import { createVercelProject, getVercelProject, setVercelEnv, createDeployment, deleteVercelProject } from "./services/vercel.js";
+import { createSupabaseProject, getProjectApiKeys, runSql, waitForProject, deleteSupabaseProject } from "./services/supabase.js";
 import { listDriveFiles, downloadDriveText, normalizeFolderId } from "./services/drive.js";
 import { affiliateDashboardScaffold, blankScaffold } from "./services/scaffold.js";
 import { affiliateSchemaSql } from "./services/affiliateSql.js";
@@ -14,7 +14,7 @@ const fail=(e:unknown)=>({isError:true,content:[{type:"text" as const,text:e ins
 async function markFailed(name:string,e:unknown){const p=await findProject(name);if(p){p.status="FAILED";await saveProject(p).catch(()=>{});}return fail(e);}
 
 export function buildMcpServer(){
-  const s=new McpServer({name:"ProjectFactory",version:"1.1.0"});
+  const s=new McpServer({name:"ProjectFactory",version:"1.5.0"});
 
   s.tool("project_list","List all managed projects",{},async()=>{try{return ok(await listProjects())}catch(e){return fail(e)}});
   s.tool("project_get","Get a project by name or alias",{project:z.string()},async({project})=>{try{return ok(await findProject(project))}catch(e){return fail(e)}});
@@ -55,7 +55,8 @@ export function buildMcpServer(){
         if(anonKey) await setVercelEnv(vc.id,"NEXT_PUBLIC_SUPABASE_ANON_KEY",anonKey);
         if(p.drive_folder_id) await setVercelEnv(vc.id,"GOOGLE_DRIVE_FOLDER_ID",p.drive_folder_id);
         if(deploy){
-          const d:any=await createDeployment(name,p.github_repo,p.github_branch||"main");
+          const repoInfo=await getRepoInfo(p.github_repo);
+          const d:any=await createDeployment(vc.id,repoInfo.id,p.github_branch||"main",name);
           p.vercel_url=d.url?`https://${d.url}`:undefined;
           await saveProject(p);
         }
@@ -74,9 +75,69 @@ export function buildMcpServer(){
     files:z.array(z.object({path:z.string(),content:z.string()})).min(1).max(30),
     commit_message:z.string().default("feat: update project"),
     deploy:z.boolean().default(true)
-  },async({project,files,commit_message,deploy})=>{try{const p=await findProject(project);if(!p?.github_repo)throw new Error("Project has no GitHub repo");p.status="CODING";await saveProject(p);const writes=await putFiles(p.github_repo,files,commit_message,p.github_branch||"main");let deployment:any=null;if(deploy&&p.vercel_project_id){p.status="DEPLOYING";await saveProject(p);deployment=await createDeployment(p.name,p.github_repo,p.github_branch||"main");p.vercel_url=deployment.url?`https://${deployment.url}`:p.vercel_url;}p.status="READY";await saveProject(p);return ok({project:p.name,files:writes.length,deployment_url:p.vercel_url||null})}catch(e){return fail(e)}});
+  },async({project,files,commit_message,deploy})=>{try{const p=await findProject(project);if(!p?.github_repo)throw new Error("Project has no GitHub repo");if(p.status==="ARCHIVED")throw new Error("Project is archived. Restore it before modifying.");p.status="CODING";await saveProject(p);const writes=await putFiles(p.github_repo,files,commit_message,p.github_branch||"main");let deployment:any=null;if(deploy&&p.vercel_project_id){p.status="DEPLOYING";await saveProject(p);const repoInfo=await getRepoInfo(p.github_repo);deployment=await createDeployment(p.vercel_project_id!,repoInfo.id,p.github_branch||"main",p.name);p.vercel_url=deployment.url?`https://${deployment.url}`:p.vercel_url;}p.status="READY";await saveProject(p);return ok({project:p.name,files:writes.length,deployment_url:p.vercel_url||null})}catch(e){return fail(e)}});
 
-  s.tool("deploy_project","Deploy an existing project to Vercel production",{project:z.string()},async({project})=>{try{const p=await findProject(project);if(!p?.github_repo)throw new Error("Project has no GitHub repo");if(!p.vercel_project_id){const vc=await createVercelProject(p.name,p.github_repo);p.vercel_project_id=vc.id;}p.status="DEPLOYING";await saveProject(p);const d:any=await createDeployment(p.name,p.github_repo,p.github_branch||"main");p.vercel_url=d.url?`https://${d.url}`:p.vercel_url;p.status="READY";await saveProject(p);return ok({url:p.vercel_url,deployment:d})}catch(e){return fail(e)}});
+  s.tool("deploy_project","Deploy an existing project to Vercel production",{project:z.string()},async({project})=>{try{const p=await findProject(project);if(!p?.github_repo)throw new Error("Project has no GitHub repo");if(p.status==="ARCHIVED")throw new Error("Project is archived. Restore it before deploying.");if(!p.vercel_project_id){const vc=await createVercelProject(p.name,p.github_repo);p.vercel_project_id=vc.id;}p.status="DEPLOYING";await saveProject(p);const repoInfo=await getRepoInfo(p.github_repo);const d:any=await createDeployment(p.vercel_project_id!,repoInfo.id,p.github_branch||"main",p.name);p.vercel_url=d.url?`https://${d.url}`:p.vercel_url;p.status="READY";await saveProject(p);return ok({url:p.vercel_url,deployment:d})}catch(e){return fail(e)}});
+
+
+  s.tool("archive_project","Archive a project in ProjectFactory without deleting GitHub, Vercel, database, or Drive files",{
+    project:z.string(),
+    confirm_project_name:z.string()
+  },async({project,confirm_project_name})=>{try{
+    const p=await findProject(project);if(!p)throw new Error("Project not found");
+    if(confirm_project_name!==p.name)throw new Error(`Confirmation mismatch. Set confirm_project_name exactly to '${p.name}'.`);
+    p.status="ARCHIVED";await saveProject(p);
+    return ok({archived:true,project:p.name,preserved:{github:p.github_repo||null,vercel:p.vercel_project_id||null,supabase:p.supabase_project_ref||null,drive:p.drive_folder_id||null}})
+  }catch(e){return fail(e)}});
+
+  s.tool("restore_project","Restore an archived project so it can be modified and deployed again",{
+    project:z.string()
+  },async({project})=>{try{
+    const p=await findProject(project);if(!p)throw new Error("Project not found");
+    if(p.status!=="ARCHIVED")return ok({restored:false,project:p.name,status:p.status,message:"Project is not archived"});
+    p.status="READY";await saveProject(p);return ok({restored:true,project:p.name,status:p.status})
+  }catch(e){return fail(e)}});
+
+  s.tool("delete_project","Delete a project from ProjectFactory. registry_only removes only the registry record. full also deletes connected Vercel, GitHub, and optional Supabase resources. Google Drive files are never deleted.",{
+    project:z.string(),
+    mode:z.enum(["registry_only","full"]),
+    confirm_project_name:z.string(),
+    delete_supabase:z.boolean().default(true)
+  },async({project,mode,confirm_project_name,delete_supabase})=>{try{
+    const p=await findProject(project);if(!p)throw new Error("Project not found");
+    if(confirm_project_name!==p.name)throw new Error(`Confirmation mismatch. Set confirm_project_name exactly to '${p.name}'.`);
+    const result:any={project:p.name,mode,deleted:{registry:false,github:false,vercel:false,supabase:false},preserved:{drive_files:true},errors:[] as string[]};
+    if(mode==="full"){
+      // Delete external resources first. Keep registry if any destructive step fails so recovery remains possible.
+      if(p.vercel_project_id){try{await deleteVercelProject(p.vercel_project_id);result.deleted.vercel=true}catch(e){result.errors.push(e instanceof Error?e.message:String(e))}}
+      if(p.github_repo){try{await deleteRepo(p.github_repo);result.deleted.github=true}catch(e){result.errors.push(e instanceof Error?e.message:String(e))}}
+      if(delete_supabase&&p.supabase_project_ref){try{await deleteSupabaseProject(p.supabase_project_ref);result.deleted.supabase=true}catch(e){result.errors.push(e instanceof Error?e.message:String(e))}}
+      if(result.errors.length){p.status="FAILED";await saveProject(p);return {isError:true,content:[{type:"text" as const,text:JSON.stringify({...result,message:"External deletion was only partially completed. Registry was preserved for recovery."},null,2)}]};}
+    }
+    await deleteProjectRecord(p);result.deleted.registry=true;
+    return ok(result)
+  }catch(e){return fail(e)}});
+
+  s.tool("repair_project_scaffold","Repair an existing project that has a GitHub repo but is missing deployable app files. Writes the selected scaffold and can deploy it to Vercel",{
+    project:z.string(),
+    template:z.enum(["affiliate-dashboard","blank"]).default("affiliate-dashboard"),
+    deploy:z.boolean().default(true)
+  },async({project,template,deploy})=>{try{
+    const p=await findProject(project);if(!p?.github_repo)throw new Error("Project has no GitHub repo");
+    const scaffold=template==="affiliate-dashboard"?affiliateDashboardScaffold(p.name):blankScaffold(p.name);
+    await putFiles(p.github_repo,scaffold,`chore: repair scaffold for ${p.name}`,p.github_branch||"main");
+    p.template=template;p.status="CODING";await saveProject(p);
+    let deployment:any=null;
+    if(deploy){
+      if(template==="blank")throw new Error("Blank template is not deployable. Use affiliate-dashboard or add app files first.");
+      if(!p.vercel_project_id){const vc=await createVercelProject(p.name,p.github_repo);p.vercel_project_id=vc.id;await saveProject(p);}
+      const repoInfo=await getRepoInfo(p.github_repo);p.status="DEPLOYING";await saveProject(p);
+      deployment=await createDeployment(p.vercel_project_id!,repoInfo.id,p.github_branch||"main",p.name);
+      p.vercel_url=deployment.url?`https://${deployment.url}`:p.vercel_url;
+    }
+    p.status="READY";await saveProject(p);
+    return ok({project:p.name,repaired:true,template,deployment_url:p.vercel_url||null});
+  }catch(e){return fail(e)}});
 
   s.tool("project_alias_add","Add an alias to a project",{project:z.string(),alias:z.string()},async({project,alias})=>{try{const p=await findProject(project);if(!p)throw new Error("Project not found");if(!p.aliases.includes(alias))p.aliases.push(alias);return ok(await saveProject(p))}catch(e){return fail(e)}});
   s.tool("project_connect_drive","Bind a Google Drive folder to a project",{project:z.string(),drive_folder:z.string()},async({project,drive_folder})=>{try{const p=await findProject(project);if(!p)throw new Error("Project not found");p.drive_folder_id=normalizeFolderId(drive_folder);return ok(await saveProject(p))}catch(e){return fail(e)}});
