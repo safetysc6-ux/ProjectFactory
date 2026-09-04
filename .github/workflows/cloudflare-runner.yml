@@ -12,13 +12,14 @@ on:
           - inventory
           - d1_create
           - r2_create
+          - d1_migrate
           - deploy_repo
       resource_name:
-        description: Resource name for create actions
+        description: D1/R2 resource name
         required: false
         type: string
       source_repo:
-        description: owner/repo to deploy
+        description: owner/repo for repo-based actions
         required: false
         type: string
       source_ref:
@@ -30,6 +31,10 @@ on:
         description: directory containing package.json and wrangler config
         required: false
         default: .
+        type: string
+      health_url:
+        description: optional URL to verify after deploy
+        required: false
         type: string
 
 jobs:
@@ -67,16 +72,16 @@ jobs:
         if: ${{ inputs.action == 'd1_create' }}
         run: |
           test -n "${{ inputs.resource_name }}" || (echo "resource_name is required" && exit 1)
-          npx --yes wrangler@latest d1 create "${{ inputs.resource_name }}"
+          npx --yes wrangler@latest d1 list | grep -q "${{ inputs.resource_name }}" || npx --yes wrangler@latest d1 create "${{ inputs.resource_name }}"
 
       - name: Create R2 bucket
         if: ${{ inputs.action == 'r2_create' }}
         run: |
           test -n "${{ inputs.resource_name }}" || (echo "resource_name is required" && exit 1)
-          npx --yes wrangler@latest r2 bucket create "${{ inputs.resource_name }}"
+          npx --yes wrangler@latest r2 bucket list | grep -q "${{ inputs.resource_name }}" || npx --yes wrangler@latest r2 bucket create "${{ inputs.resource_name }}"
 
       - name: Checkout target repo
-        if: ${{ inputs.action == 'deploy_repo' }}
+        if: ${{ inputs.action == 'deploy_repo' || inputs.action == 'd1_migrate' }}
         uses: actions/checkout@v4
         with:
           repository: ${{ inputs.source_repo }}
@@ -85,12 +90,25 @@ jobs:
           path: target
 
       - name: Install target dependencies
-        if: ${{ inputs.action == 'deploy_repo' }}
+        if: ${{ inputs.action == 'deploy_repo' || inputs.action == 'd1_migrate' }}
         working-directory: target/${{ inputs.working_directory }}
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Apply D1 migrations
+        if: ${{ inputs.action == 'd1_migrate' }}
+        working-directory: target/${{ inputs.working_directory }}
+        run: |
+          test -n "${{ inputs.resource_name }}" || (echo "resource_name is required" && exit 1)
+          npx wrangler d1 migrations apply "${{ inputs.resource_name }}" --remote
 
       - name: Deploy target to Cloudflare
         if: ${{ inputs.action == 'deploy_repo' }}
         working-directory: target/${{ inputs.working_directory }}
         run: npx wrangler deploy
+
+      - name: Verify deployed endpoint
+        if: ${{ inputs.action == 'deploy_repo' && inputs.health_url != '' }}
+        run: |
+          sleep 3
+          curl --fail --silent --show-error "${{ inputs.health_url }}" >/dev/null
