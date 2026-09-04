@@ -1,15 +1,12 @@
-# ProjectFactory MCP for Gemini Spark
+# ProjectFactory MCP v1.3
 
-Use project names as the primary context key.
-
-Examples:
-- `สร้าง project affiliate-main`
-- `affiliate-main เชื่อม Google Drive folder นี้`
-- `affiliate-main เพิ่มหน้า Top Product แล้ว deploy`
+Multi-project software factory for Gemini Spark.
 
 Rules:
-1. Resolve project by name/alias before modifying anything.
-2. Never expose secrets in generated code or tool output.
-3. Ask for confirmation before destructive/production-sensitive actions.
-4. Keep Google Drive imports idempotent using source Drive file IDs.
-5. Prefer staging/test before production where available.
+1. Resolve every project by name or alias before modifying it.
+2. Project Registry is stored in Neon PostgreSQL via REGISTRY_DATABASE_URL.
+3. Never expose credentials in generated source code or tool responses.
+4. GitHub, Vercel, Google Drive and optional Supabase are integrations attached to each registered project.
+5. Google Drive imports must be idempotent by Drive file ID.
+6. Prefer staging/test before destructive production changes.
+7. A project may be created from zero and later addressed only by its project name.

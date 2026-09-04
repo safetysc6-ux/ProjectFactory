@@ -1,7 +1,7 @@
-create table if not exists public.project_registry (
+create table if not exists project_registry (
   id uuid primary key,
-  name text unique not null,
-  aliases text[] not null default '{}',
+  name text not null unique,
+  aliases jsonb not null default '[]'::jsonb,
   description text,
   status text not null default 'NEW',
   template text,
@@ -15,5 +15,5 @@ create table if not exists public.project_registry (
   updated_at timestamptz not null default now()
 );
 
-alter table public.project_registry enable row level security;
--- Registry is server-only. Do not add anon policies.
+create index if not exists project_registry_name_lower_idx
+  on project_registry (lower(name));

@@ -22,9 +22,7 @@ services:
         sync: false
       - key: MCP_API_TOKEN
         sync: false
-      - key: REGISTRY_SUPABASE_URL
-        sync: false
-      - key: REGISTRY_SUPABASE_SERVICE_ROLE_KEY
+      - key: REGISTRY_DATABASE_URL
         sync: false
       - key: GITHUB_TOKEN
         sync: false

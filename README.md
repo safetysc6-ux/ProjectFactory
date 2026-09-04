@@ -1,73 +1,85 @@
-# ProjectFactory MCP v1.2 — Render + Gemini Spark OAuth
+# ProjectFactory MCP v1.3 — Render + Gemini Spark + Neon
 
-Remote multi-project MCP server สำหรับ Gemini Spark โดยเฉพาะ
+เวอร์ชันนี้เปลี่ยน **Project Registry จาก Supabase เป็น Neon PostgreSQL** แล้ว
 
-## Gemini Spark connection
-
-หลัง Deploy บน Render ให้ตั้ง `PUBLIC_BASE_URL` เป็น URL ของ Render เช่น:
+## Architecture
 
 ```text
-https://project-factory-mcp.onrender.com
+Gemini Spark
+   ↓ OAuth
+ProjectFactory MCP (Render)
+   ↓
+Neon PostgreSQL  ← Project Registry กลาง
+   ├─ project name / aliases
+   ├─ GitHub repo
+   ├─ Vercel project
+   ├─ Supabase project (optional)
+   └─ Google Drive folder
 ```
 
-แล้วใน Gemini Spark > Custom apps:
+> Supabase Management API ยังเก็บไว้เป็น optional integration สำหรับโปรเจกต์ที่ต้องการ Supabase เป็นฐานข้อมูลของเว็บ แต่ **ตัว Registry กลางไม่ใช้ Supabase แล้ว**
 
-```text
-MCP server URL:
-https://project-factory-mcp.onrender.com/mcp
+## ENV ที่เปลี่ยน
 
-OAuth Client ID:
-ค่าจาก MCP_OAUTH_CLIENT_ID
+ลบ:
 
-OAuth Client Secret:
-ค่าจาก MCP_OAUTH_CLIENT_SECRET
+```env
+REGISTRY_SUPABASE_URL=
+REGISTRY_SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-MCP มี OAuth endpoints:
+เพิ่ม:
+
+```env
+REGISTRY_DATABASE_URL=postgresql://...
+```
+
+ให้ copy **Pooled connection string** จาก Neon Dashboard มาใส่ใน Render Environment
+
+## Render
+
+Build Command:
+
+```bash
+npm install && npm run check
+```
+
+Start Command:
+
+```bash
+npm start
+```
+
+Health check:
 
 ```text
-/.well-known/oauth-authorization-server
-/.well-known/oauth-protected-resource
-/authorize
-/token
-/mcp
 /health
 ```
 
-## Render settings
+MCP endpoint:
 
 ```text
-Runtime: Node
-Build Command: npm install && npm run check
-Start Command: npm start
-Health Check Path: /health
+/mcp
 ```
 
-## ENV กลุ่มแรกที่ต้องตั้งเพื่อเชื่อม Spark
+## Neon Table
 
-```env
-PUBLIC_BASE_URL=https://YOUR-SERVICE.onrender.com
-MCP_OAUTH_CLIENT_ID=projectfactory-gemini-spark
-MCP_OAUTH_CLIENT_SECRET=สุ่มรหัสยาวอย่างน้อย32ตัว
-MCP_OAUTH_SIGNING_SECRET=สุ่มอีกชุดหนึ่งอย่างน้อย32ตัว
+ตัว MCP จะสร้าง `project_registry` ให้อัตโนมัติเมื่อเชื่อมครั้งแรก ดังนั้นไม่จำเป็นต้องรัน SQL เอง แต่มี `registry.sql` แนบไว้สำหรับตรวจสอบหรือสร้างด้วยมือ
+
+## Test
+
+หลัง deploy:
+
+```text
+https://YOUR-SERVICE.onrender.com/health
 ```
 
-`MCP_OAUTH_CLIENT_ID` ไม่ใช่ Google Client ID — เป็น Client ID ที่เรากำหนดให้ Spark เชื่อม MCP นี้
+แล้วนำ URL นี้ไปใส่ Gemini Spark:
 
-## Security
+```text
+https://YOUR-SERVICE.onrender.com/mcp
+```
 
-- Client Secret และ Signing Secret เก็บเฉพาะ Render Environment
-- ห้าม commit `.env`
-- v1.2 รองรับ PKCE (`S256`/`plain`)
-- ถ้ายังไม่รู้ Gemini redirect URI ให้เว้น `MCP_OAUTH_ALLOWED_REDIRECT_URIS`; ระบบจะยอมรับเฉพาะ HTTPS redirect
-- หลังเห็น redirect URI จริงจาก log/error แนะนำใส่ allow-list ให้ตรงแบบ exact match
+## Important
 
-## Existing ProjectFactory features
-
-- multi-project registry
-- bootstrap project
-- GitHub code write
-- Vercel project/deploy integration
-- Supabase management/schema
-- Google Drive / Sheet / CSV integration
-- affiliate project template
+อย่าใส่ token หรือ database URL จริงลง GitHub ให้เก็บใน Render Environment เท่านั้น
