@@ -1,6 +1,7 @@
 name: Deploy affiliate-test-v2 via ProjectFactory
 
 on:
+  workflow_dispatch:
   push:
     branches: ["main"]
     paths:
