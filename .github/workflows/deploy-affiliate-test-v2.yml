@@ -1,6 +1,6 @@
 name: Deploy affiliate-test-v2 via ProjectFactory
 
-# browser-only AI deploy fix
+# manual redeploy 2026-09-05 22:00 ICT
 on:
   workflow_dispatch:
   push:
