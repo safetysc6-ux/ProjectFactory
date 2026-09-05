@@ -1,6 +1,5 @@
 name: Deploy affiliate-test-v2 via ProjectFactory
 
-# standalone split build v3
 on:
   workflow_dispatch:
   push:
@@ -35,34 +34,16 @@ jobs:
 
       - name: Install dependencies
         working-directory: target
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-
-      - name: Build Next.js app
-        working-directory: target
-        run: npm run build
-
-      - name: Remove native AI runtime before Worker bundle
-        working-directory: target
-        run: |
-          rm -rf node_modules/@huggingface/transformers
-          rm -rf node_modules/onnxruntime-node node_modules/onnxruntime-common
-          rm -rf .next/standalone/node_modules/@huggingface/transformers
-          rm -rf .next/standalone/node_modules/onnxruntime-node .next/standalone/node_modules/onnxruntime-common
-          find .next/standalone -type d \( -name 'onnxruntime-node' -o -name 'onnxruntime-common' \) -prune -exec rm -rf {} + || true
+        run: npm install
 
       - name: Apply D1 migrations
         working-directory: target
         run: |
           if [ -d migrations ]; then npx wrangler d1 migrations apply affiliate-dashboard-db --remote; fi
 
-      - name: Build OpenNext bundle without rebuilding Next.js
-        working-directory: target
-        run: npx opennextjs-cloudflare build --skipNextBuild
-
       - name: Deploy to Cloudflare
         working-directory: target
-        run: npx opennextjs-cloudflare deploy
+        run: npm run deploy
 
       - name: Verify endpoint
         run: |
