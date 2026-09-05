@@ -1,0 +1,39 @@
+name: deploy-mirror-sync
+
+on:
+  push:
+    branches: [sync/affiliate-d1]
+    paths:
+      - '.github/workflows/deploy-mirror-sync.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: safetysc6-ux/affiliate-test-v2
+          ref: main
+          token: ${{ secrets.PROJECTFACTORY_GITHUB_TOKEN || github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run deploy
+      - name: Sync Sheet to D1
+        run: |
+          curl --fail --silent --show-error -X POST https://affiliate-test-v2-cf.safetysc6.workers.dev/api/sync-sheet
+      - name: Verify stale date removed
+        run: |
+          python - <<'PY'
+          import json, urllib.request
+          url='https://affiliate-test-v2-cf.safetysc6.workers.dev/api/reports?preset=all'
+          with urllib.request.urlopen(url) as r:
+              data=json.load(r)
+          dates=[x.get('date') for x in data.get('daily',[])]
+          print('latest=', max(dates) if dates else None, 'days=', len(dates))
+          assert '2026-09-05' not in dates, 'stale 2026-09-05 still exists'
+          PY
