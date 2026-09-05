@@ -1,0 +1,43 @@
+name: Seed Trend Hunter Products
+
+on:
+  push:
+    branches: ["deploy/trend-hunter"]
+    paths:
+      - ".github/workflows/seed-trend-hunter-products.yml"
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Push Shopee product snapshots
+        shell: bash
+        run: |
+          cat > payload.json <<'JSON'
+          {
+            "items": [
+              {"id":"shopee-th-1377760054-25138783288","name":"SV ชั้นวางเครื่องปรุง ชั้นหมุนได้ 360° ในครัว ที่วางเครื่องปรุง 3ชั้น","category":"ครัว/ชั้นวางเครื่องปรุง","price":66,"url":"https://shopee.co.th/product/1377760054/25138783288","commission":0,"sales":3039,"reviews":988,"videos":0},
+              {"id":"shopee-th-295871010-29769989222","name":"MMM ชั้นวางเครื่องปรุง 1/2/3 ชั้น หมุนได้ 360°","category":"ครัว/ชั้นวางเครื่องปรุง","price":67,"url":"https://shopee.co.th/product/295871010/29769989222","commission":0,"sales":5573,"reviews":1767,"videos":0},
+              {"id":"shopee-th-1258538746-26501538777","name":"ชั้นวางเครื่องปรุง รอบ/สี่เหลี่ยม หมุนได้ 360°","category":"ครัว/ชั้นวางเครื่องปรุง","price":1,"url":"https://shopee.co.th/product/1258538746/26501538777","commission":0,"sales":855,"reviews":281,"videos":0},
+              {"id":"shopee-th-781042688-18107172111","name":"Jesitte ชั้นวางขวดเครื่องปรุง 2/3/4 ชั้น","category":"ครัว/ชั้นวางเครื่องปรุง","price":379,"url":"https://shopee.co.th/product/781042688/18107172111","commission":0,"sales":5069,"reviews":1600,"videos":0},
+              {"id":"shopee-th-1736918266-46706905713","name":"TOPliFE ชั้นวางเครื่องปรุง 2/3 ชั้น กันสนิม","category":"ครัว/ชั้นวางเครื่องปรุง","price":188,"url":"https://shopee.co.th/product/1736918266/46706905713","commission":0,"sales":1346,"reviews":322,"videos":0},
+              {"id":"shopee-th-132532137-41955164967","name":"ตู้วางเครื่องปรุง พร้อมที่ใส่มีดเขียงช้อนส้อม","category":"ครัว/ตู้เก็บเครื่องปรุง","price":564,"url":"https://shopee.co.th/product/132532137/41955164967","commission":0,"sales":697,"reviews":217,"videos":0},
+              {"id":"shopee-th-1469802119-25092136584","name":"ZEEN STORE ชั้นวางเครื่องปรุง 3 ชั้น หมุน 360°","category":"ครัว/ชั้นวางเครื่องปรุง","price":66,"url":"https://shopee.co.th/product/1469802119/25092136584","commission":0,"sales":7623,"reviews":2481,"videos":0},
+              {"id":"shopee-th-105281190-40105154571","name":"M-Experience ตู้วางเครื่องปรุง พร้อมที่ใส่มีดเขียงช้อนส้อม","category":"ครัว/ตู้เก็บเครื่องปรุง","price":635,"url":"https://shopee.co.th/product/105281190/40105154571","commission":0,"sales":368,"reviews":118,"videos":0},
+              {"id":"shopee-th-312772064-18681694589","name":"Homeoutlet ชั้นวางเครื่องปรุง 2 ชั้น เหล็กเคลือบกันสนิม","category":"ครัว/ชั้นวางเครื่องปรุง","price":1,"url":"https://shopee.co.th/product/312772064/18681694589","commission":0,"sales":12180,"reviews":3509,"videos":0},
+              {"id":"shopee-th-262903765-14097720691","name":"Belle vie ชั้นวางเครื่องปรุง 1/2/3 ชั้น หมุนได้ 360°","category":"ครัว/ชั้นวางเครื่องปรุง","price":135,"url":"https://shopee.co.th/product/262903765/14097720691","commission":0,"sales":11134,"reviews":3437,"videos":0}
+            ]
+          }
+          JSON
+
+          echo "POST snapshot batch"
+          curl --fail-with-body --silent --show-error \
+            -H 'content-type: application/json' \
+            --data @payload.json \
+            https://shopee-trend-hunter.safetysc6.workers.dev/api/trends/snapshots
+          echo
+
+          echo "VERIFY"
+          curl --fail-with-body --silent --show-error \
+            https://shopee-trend-hunter.safetysc6.workers.dev/api/trends
+          echo
