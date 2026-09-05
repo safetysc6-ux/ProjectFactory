@@ -1,6 +1,6 @@
 name: Deploy affiliate-test-v2 via ProjectFactory
 
-# standalone split build v2
+# standalone split build v3
 on:
   workflow_dispatch:
   push:
@@ -47,6 +47,9 @@ jobs:
         run: |
           rm -rf node_modules/@huggingface/transformers
           rm -rf node_modules/onnxruntime-node node_modules/onnxruntime-common
+          rm -rf .next/standalone/node_modules/@huggingface/transformers
+          rm -rf .next/standalone/node_modules/onnxruntime-node .next/standalone/node_modules/onnxruntime-common
+          find .next/standalone -type d \( -name 'onnxruntime-node' -o -name 'onnxruntime-common' \) -prune -exec rm -rf {} + || true
 
       - name: Apply D1 migrations
         working-directory: target
