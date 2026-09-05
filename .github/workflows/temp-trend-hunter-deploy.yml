@@ -29,8 +29,7 @@ jobs:
           path: target
       - name: Configure D1
         working-directory: target
-        run: |
-          sed -i "s/REPLACE_WITH_D1_DATABASE_ID/$D1_ID/" wrangler.toml
+        run: sed -i "s/REPLACE_WITH_D1_DATABASE_ID/$D1_ID/" wrangler.toml
       - name: Install
         working-directory: target
         run: npm install
@@ -40,9 +39,15 @@ jobs:
       - name: Deploy Worker
         working-directory: target
         run: npm run deploy
-      - name: Verify
-        run: curl --fail --silent --show-error https://shopee-trend-hunter.safetysc6.workers.dev/health
+      - name: Verify API
+        run: |
+          for i in 1 2 3 4 5; do
+            sleep 4
+            if curl --fail --silent --show-error https://shopee-trend-hunter.safetysc6.workers.dev/api/trends; then exit 0; fi
+          done
+          exit 1
       - name: Save D1 id to branch
+        if: always()
         working-directory: target
         run: |
           git config user.name projectfactory-bot
