@@ -37,6 +37,15 @@ jobs:
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
+      - name: Remove native AI runtime from Cloudflare bundle
+        working-directory: target
+        run: |
+          npm uninstall @huggingface/transformers --no-save || true
+          rm -rf node_modules/onnxruntime-node node_modules/onnxruntime-common
+          if [ -d node_modules/onnxruntime-node ]; then
+            echo "onnxruntime-node still present" && exit 1
+          fi
+
       - name: Apply D1 migrations
         working-directory: target
         run: |
