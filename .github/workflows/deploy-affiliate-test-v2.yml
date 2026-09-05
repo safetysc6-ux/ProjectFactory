@@ -37,19 +37,28 @@ jobs:
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
+      - name: Build Next.js app
+        working-directory: target
+        run: npm run build
+
+      - name: Remove native AI runtime before Worker bundle
+        working-directory: target
+        run: |
+          rm -rf node_modules/@huggingface/transformers
+          rm -rf node_modules/onnxruntime-node node_modules/onnxruntime-common
+
       - name: Apply D1 migrations
         working-directory: target
         run: |
           if [ -d migrations ]; then npx wrangler d1 migrations apply affiliate-dashboard-db --remote; fi
 
+      - name: Build OpenNext bundle without rebuilding Next.js
+        working-directory: target
+        run: npx opennextjs-cloudflare build --skipNextBuild
+
       - name: Deploy to Cloudflare
         working-directory: target
-        run: |
-          if node -e "const p=require('./package.json'); process.exit(p.scripts&&p.scripts.deploy?0:1)"; then
-            npm run deploy
-          else
-            npx wrangler deploy
-          fi
+        run: npx opennextjs-cloudflare deploy
 
       - name: Verify endpoint
         run: |
