@@ -1,5 +1,6 @@
 name: Deploy affiliate-test-v2 via ProjectFactory
 
+# standalone split build v2
 on:
   workflow_dispatch:
   push:
