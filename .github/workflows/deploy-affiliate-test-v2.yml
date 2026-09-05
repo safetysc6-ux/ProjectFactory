@@ -1,5 +1,6 @@
 name: Deploy affiliate-test-v2 via ProjectFactory
 
+# browser-only AI deploy fix
 on:
   workflow_dispatch:
   push:
