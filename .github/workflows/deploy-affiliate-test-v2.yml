@@ -1,6 +1,6 @@
 name: Deploy affiliate-test-v2 via ProjectFactory
 
-# manual redeploy 2026-09-05 23:12 ICT
+# manual redeploy multi-account 2026-09-07
 on:
   workflow_dispatch:
   push:
