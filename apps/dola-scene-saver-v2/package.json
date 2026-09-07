@@ -1,0 +1,12 @@
+{
+  "name": "dola-scene-saver-v2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.129.1"
+  }
+}
