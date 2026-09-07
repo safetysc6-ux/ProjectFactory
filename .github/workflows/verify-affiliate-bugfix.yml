@@ -1,0 +1,28 @@
+name: Verify Affiliate Bugfix
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/verify-affiliate-bugfix.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resync SubID mirror
+        run: |
+          curl --fail --silent --show-error -X POST 'https://affiliate-test-v2-cf.safetysc6.workers.dev/api/sync-subids' -o /tmp/sync.json
+          cat /tmp/sync.json
+          node -e "const x=require('/tmp/sync.json'); if(!x.ok) process.exit(1)"
+      - name: Verify combined latest-per-account
+        run: |
+          curl --fail --silent --show-error 'https://affiliate-test-v2-cf.safetysc6.workers.dev/api/subids?account=all' -o /tmp/all.json
+          cat /tmp/all.json
+          node -e "const x=require('/tmp/all.json'); if(x.status!=='success'||!x.account_dates||!x.account_dates.account_1||!x.account_dates.account_2||!Array.isArray(x.items)) process.exit(1); console.log(x.account_dates)"
+      - name: Verify account APIs
+        run: |
+          for account in account_1 account_2; do
+            curl --fail --silent --show-error "https://affiliate-test-v2-cf.safetysc6.workers.dev/api/subids?account=${account}" -o "/tmp/${account}.json"
+            node -e "const x=require('/tmp/${account}.json'); if(x.status!=='success') process.exit(1); console.log('${account}',x.date,x.items.length)"
+          done
