@@ -1,6 +1,6 @@
 name: Deploy affiliate-test-v2 via ProjectFactory
 
-# manual redeploy mobile visibility hotfix 2026-09-07
+# manual redeploy decision dashboard 2026-09-07
 on:
   workflow_dispatch:
   push:
