@@ -1,0 +1,43 @@
+name: deploy-dola-scene-saver-v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/dola-scene-saver-v2/**'
+      - '.github/workflows/deploy-dola-scene-saver-v2.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/dola-scene-saver-v2
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install
+      - name: Validate Cloudflare
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+      - name: Sync Gemini secret if configured
+        run: |
+          if [ -n "$GEMINI_API_KEY" ]; then
+            printf '%s' "$GEMINI_API_KEY" | npx wrangler secret put GEMINI_API_KEY
+          else
+            echo 'GEMINI_API_KEY not configured; UI deploy continues.'
+          fi
+      - name: Deploy
+        run: npm run deploy
+      - name: Health
+        run: |
+          sleep 4
+          curl --fail --silent --show-error https://dola-scene-saver.safetysc6.workers.dev/api/health
