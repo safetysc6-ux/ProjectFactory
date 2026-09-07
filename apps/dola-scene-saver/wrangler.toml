@@ -1,0 +1,8 @@
+name = "dola-scene-saver"
+main = "src/index.js"
+compatibility_date = "2026-09-07"
+
+[vars]
+GEMINI_TEXT_MODEL = "gemini-2.5-flash"
+GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image-preview"
+GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts"
